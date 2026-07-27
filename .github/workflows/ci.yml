@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  agent:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: lan-save-sync-windows-amd64
+            binary: target/release/lan-save-sync.exe
+          - os: ubuntu-latest
+            artifact: lan-save-sync-steam-deck-amd64
+            binary: target/release/lan-save-sync
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release -p lan-save-sync
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.binary }}
+            install/windows/*
+            install/steam-deck/*
+            examples/*
+            README.md
+            LICENSE
+
+  decky:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/decky-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/decky-plugin/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lan-save-sync-decky
+          path: |
+            apps/decky-plugin/dist/index.js
+            apps/decky-plugin/main.py
+            apps/decky-plugin/plugin.json
+            apps/decky-plugin/package.json
+            apps/decky-plugin/README.md
+            LICENSE
