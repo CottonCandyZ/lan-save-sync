@@ -1,0 +1,10 @@
+{
+  "name": "LAN Save Sync",
+  "author": "LAN Save Sync contributors",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["sync", "saves", "lan"],
+    "description": "Safely compare and manually synchronize save folders over your LAN."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "device": {
+    "id": "windows-pc",
+    "name": "Gaming PC"
+  },
+  "listen": "0.0.0.0:48123",
+  "api_token": "CHANGE_ME_USE_THE_TOKEN_CREATED_BY_INIT",
+  "data_dir": "C:\\Users\\YOUR_NAME\\AppData\\Roaming\\LanSaveSync\\data",
+  "peers": [
+    {
+      "id": "steam-deck",
+      "name": "Steam Deck",
+      "url": "http://192.168.1.50:48123",
+      "token": "CHANGE_ME_COPY_THE_DECK_API_TOKEN"
+    }
+  ],
+  "folders": [
+    {
+      "id": "eden",
+      "name": "Eden saves",
+      "path": "D:\\Emulators\\Eden\\user\\save",
+      "enabled": false,
+      "excludes": [
+        "*.tmp",
+        "**/*.tmp"
+      ]
+    }
+  ],
+  "history_limit": 20
+}

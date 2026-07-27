@@ -1,0 +1,13 @@
+[Unit]
+Description=LAN Save Sync Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/lan-save-sync --config %h/.config/lan-save-sync/agent.json serve
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

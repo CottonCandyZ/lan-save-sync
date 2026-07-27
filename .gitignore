@@ -1,0 +1,36 @@
+# Rust
+/target/
+
+# Decky / Node
+node_modules/
+apps/decky-plugin/dist/
+__pycache__/
+*.pyc
+
+# Local secrets and runtime data
+agent.json
+*.local.json
+**/data/
+**/versions/
+state.json
+*.tmp
+
+# Builds and packages
+/dist/
+*.zip
+*.tar.gz
+
+# Logs and coverage
+*.log
+*.err.log
+coverage/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Codex scratch and deliverables
+/work/
+/outputs/
