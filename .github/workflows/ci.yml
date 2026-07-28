@@ -38,7 +38,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -61,7 +61,7 @@ jobs:
             extension: tar.gz
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release -p lan-save-sync
 
@@ -90,7 +90,7 @@ jobs:
           cp README.md LICENSE "dist/$package/"
           tar -C dist -czf "dist/$package.tar.gz" "$package"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}-${{ needs.version.outputs.value }}
           path: dist/${{ matrix.artifact }}-${{ needs.version.outputs.value }}.${{ matrix.extension }}
@@ -104,13 +104,13 @@ jobs:
       run:
         working-directory: apps/decky-plugin
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.15.9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           cache-dependency-path: apps/decky-plugin/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
@@ -129,7 +129,7 @@ jobs:
           cd release
           zip -r "$package.zip" "$package"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lan-save-sync-decky-${{ needs.version.outputs.value }}
           path: apps/decky-plugin/release/lan-save-sync-decky-${{ needs.version.outputs.value }}.zip
@@ -145,7 +145,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
