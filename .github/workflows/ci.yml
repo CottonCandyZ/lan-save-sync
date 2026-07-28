@@ -3,13 +3,38 @@ name: CI
 on:
   push:
     branches: ["main"]
-    tags: ["v*"]
+    tags: ["v*-alpha"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="$GITHUB_REF_NAME"
+            if [[ ! "$version" =~ ^v[0-9]{8}\.[0-9]{6}-alpha$ ]]; then
+              echo "::error::Alpha tag must match vYYYYMMDD.HHMMSS-alpha"
+              exit 1
+            fi
+          else
+            version="ci-${GITHUB_SHA::7}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -22,32 +47,58 @@ jobs:
       - run: cargo test --workspace
 
   agent:
+    needs: version
     strategy:
       matrix:
         include:
           - os: windows-latest
             artifact: lan-save-sync-windows-amd64
             binary: target/release/lan-save-sync.exe
+            extension: zip
           - os: ubuntu-latest
             artifact: lan-save-sync-steam-deck-amd64
             binary: target/release/lan-save-sync
+            extension: tar.gz
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release -p lan-save-sync
+
+      - name: Package Windows build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $package = "${{ matrix.artifact }}-${{ needs.version.outputs.value }}"
+          $stage = Join-Path "dist" $package
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "${{ matrix.binary }}" (Join-Path $stage "lan-save-sync.exe")
+          Copy-Item "install/windows/*" $stage -Recurse
+          Copy-Item "examples" (Join-Path $stage "examples") -Recurse
+          Copy-Item -Path "README.md", "LICENSE" -Destination $stage
+          Compress-Archive -Path "$stage/*" -DestinationPath "dist/$package.zip"
+
+      - name: Package Steam Deck build
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          package="${{ matrix.artifact }}-${{ needs.version.outputs.value }}"
+          mkdir -p "dist/$package"
+          install -m 0755 "${{ matrix.binary }}" "dist/$package/lan-save-sync"
+          cp -R install/steam-deck/. "dist/$package/"
+          cp -R examples "dist/$package/examples"
+          cp README.md LICENSE "dist/$package/"
+          tar -C dist -czf "dist/$package.tar.gz" "$package"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: |
-            ${{ matrix.binary }}
-            install/windows/*
-            install/steam-deck/*
-            examples/*
-            README.md
-            LICENSE
+          name: ${{ matrix.artifact }}-${{ needs.version.outputs.value }}
+          path: dist/${{ matrix.artifact }}-${{ needs.version.outputs.value }}.${{ matrix.extension }}
+          compression-level: 0
+          if-no-files-found: error
 
   decky:
+    needs: version
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,13 +116,48 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
+
+      - name: Package Decky plugin
+        shell: bash
+        run: |
+          package="lan-save-sync-decky-${{ needs.version.outputs.value }}"
+          root="release/$package/LanSaveSync"
+          mkdir -p "$root/dist"
+          cp dist/index.js "$root/dist/index.js"
+          cp main.py plugin.json package.json README.md "$root/"
+          cp ../../LICENSE "$root/LICENSE"
+          cd release
+          zip -r "$package.zip" "$package"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: lan-save-sync-decky
-          path: |
-            apps/decky-plugin/dist/index.js
-            apps/decky-plugin/main.py
-            apps/decky-plugin/plugin.json
-            apps/decky-plugin/package.json
-            apps/decky-plugin/README.md
-            LICENSE
+          name: lan-save-sync-decky-${{ needs.version.outputs.value }}
+          path: apps/decky-plugin/release/lan-save-sync-decky-${{ needs.version.outputs.value }}.zip
+          compression-level: 0
+          if-no-files-found: error
+
+  release:
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/')
+    needs: [version, test, agent, decky]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create alpha release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.value }}
+        run: |
+          gh release create "$VERSION" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "LAN Save Sync $VERSION" \
+            --notes "Automated alpha build from commit $GITHUB_SHA. This is a prerelease for testing." \
+            --prerelease
